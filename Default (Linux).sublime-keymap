@@ -1,0 +1,10 @@
+[
+  // Search dirs
+  { "keys": ["ctrl+alt+d"], "command": "find_dir" },
+  // Search files
+  { "keys": ["ctrl+alt+f"], "command": "find_file" },
+  // Rg file
+  { "keys": ["ctrl+alt+r"], "command": "rg_file" },
+  // Rg in all folders in window
+  { "keys": ["ctrl+alt+shift+r"], "command": "rg_all" },
+]
