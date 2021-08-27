@@ -1,6 +1,5 @@
 import os
 import subprocess
-# import datetime as dt
 from typing import List, Tuple
 import sublime
 import sublime_plugin
@@ -16,16 +15,12 @@ files = []
 
 def plugin_loaded():
     global s, conf, folders, files, paths
-    # start = dt.datetime.now()
     s = sublime.load_settings(SETTINGS_FILE)
     paths = s.get('paths')
     conf = Conf()
     folders = Search().results
     files = Search('f').results
-    # end = dt.datetime.now()
-    # spent = (end - start).microseconds / 1000
     _check_rg()
-    # print('--SublimeFind--: ', spent, 'ms')
 
 
 def _prettify_path(path: str) -> str:
@@ -147,14 +142,6 @@ class FindFileCommand(sublime_plugin.WindowCommand):
 
     def _get_window(self):
         curwin = sublime.active_window()
-
-        # if settings.get('open_in_new_window'):
-        #     if not curwin.folders() and not curwin.views():
-        #         return curwin
-        #     else:
-        #         self.window.run_command('new_window')
-        #         return sublime.active_window()
-
         return curwin
 
     def _is_transient(self, view):
@@ -178,7 +165,6 @@ class FindFileCommand(sublime_plugin.WindowCommand):
             file = self.results[index]
             if os.path.isfile(os.path.expanduser(file)):
                 new_win = self._get_window()
-                # new_win.set_sidebar_visible(True)
                 new_win.open_file(file)
 
         else:
@@ -327,7 +313,6 @@ class RgAll(sublime_plugin.WindowCommand):
                 active_view.close()
             result = self.results[index]
             path, line_nr, _ = self._get_result_parts(result)
-            print(path, line_nr)
             self.window.open_file('{}:{}'.format(path, line_nr),
                                   sublime.ENCODED_POSITION)
         else:
