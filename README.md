@@ -1,12 +1,13 @@
+
 # SublimeFind with `fd` and `rg`
 
 ### Description
 
 A Sublime Text plugin that shows the results of the commands `fd` (replacement of `find`) and `rg` (replacement of `grep`) in Sublime's Quick Panel, making the results searchable. The selection will be opened in a new window, if a folder, or in the current window, if it is a file. 
 
-![](https://p282.p1.n0.cdn.getcloudapp.com/items/qGuJE60A/1e853ac6-e000-4f40-8f07-23b55f786ef2.gif?v=aa0404ed6c1adf1bb9e7eec7308520c2)
+![SublimeFind1](https://user-images.githubusercontent.com/20104703/131145472-25ad1c0c-ed9e-468d-b9fb-ae1b10c3963a.gif)
 
-![](https://p282.p1.n0.cdn.getcloudapp.com/items/wbubwLNR/61f6f81d-abee-4408-affc-6abbeb5f7fb4.gif?v=8a12095d1fd30bee24922790c4ad8a79)
+![SublimeFind2](https://user-images.githubusercontent.com/20104703/131145029-ceae1432-c0f1-4409-b560-8ab0f362605d.gif)
 
 Needless to say, this plugin depends on having both commands installed and in your path.
 
