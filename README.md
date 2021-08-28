@@ -17,7 +17,7 @@ The motivation for this plugin is to bring some of my workflow from the terminal
 
 To be able to use `fd`, a list of paths has to be defined in the setting `"paths": []`. Once there is a list of paths defined, it is possible to look for directories or files in those paths with:
 
-```json
+```
 [
   // Search dirs
   { "keys": ["ctrl+alt+d"], "command": "find_dir" },
@@ -28,7 +28,7 @@ To be able to use `fd`, a list of paths has to be defined in the setting `"paths
 
 Additionally, it is possible to get the ouput of `rg` (ripgrep) from either the current file or from all files in the folders in the project, similar to one of `fzf.vim's` features. The commands for this are:
 
-```json
+```
 [
   // Rg file
   { "keys": ["ctrl+alt+r"], "command": "rg_file" },
