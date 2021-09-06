@@ -218,15 +218,19 @@ class RgFile(sublime_plugin.WindowCommand):
             self.window.active_view().set_viewport_position(self.viewport)
 
     def run(self):
-        self.view_regions = [reg for reg in self.window.active_view().sel()]
-        self.viewport = self.window.active_view().viewport_position()
-        self.results = self._rgQuery()
-        placeholder = 'Search for line in file (out of {})'.format(
-            len(self.results))
-        self.window.show_quick_panel(
-            self.results,
-            self._on_open, placeholder=placeholder,
-            on_highlight=self._show_preview)
+        if self.window.active_view().file_name():
+            self.view_regions = [
+                reg for reg in self.window.active_view().sel()]
+            self.viewport = self.window.active_view().viewport_position()
+            self.results = self._rgQuery()
+            placeholder = 'Search for line in file (out of {})'.format(
+                len(self.results))
+            self.window.show_quick_panel(
+                self.results,
+                self._on_open, placeholder=placeholder,
+                on_highlight=self._show_preview)
+        else:
+            self.window.show_quick_panel(["No results to display"], None)
 
 
 class RgAll(sublime_plugin.WindowCommand):
@@ -330,7 +334,10 @@ class RgAll(sublime_plugin.WindowCommand):
         self.viewport = self.window.active_view().viewport_position()
         placeholder = 'Search for line in project (out of {})'.format(
             len(self.results))
-        self.window.show_quick_panel(
-            self._display_list(),
-            self._on_open, placeholder=placeholder,
-            on_highlight=lambda idx: self._show_preview(idx))
+        if self.paths:
+            self.window.show_quick_panel(
+                self._display_list(),
+                self._on_open, placeholder=placeholder,
+                on_highlight=lambda idx: self._show_preview(idx))
+        else:
+            self.window.show_quick_panel(["No results to display"], None)
