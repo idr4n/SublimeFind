@@ -1,0 +1,22 @@
+[
+  // Search dirs
+  {
+    "caption": "SublimeFind: Find Dir",
+    "command": "find_dir"
+  },
+  // Search files
+  {
+    "caption": "SublimeFind: Find File",
+    "command": "find_file"
+  },
+  // Rg file
+  {
+    "caption": "SublimeFind: Rg inside File",
+    "command": "rg_file"
+  },
+  // Rg in all folders in window
+  {
+    "caption": "SublimeFind: Rg all Files in Window",
+    "command": "rg_all"
+  },
+]
