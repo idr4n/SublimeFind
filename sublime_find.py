@@ -27,6 +27,7 @@ class SublimeFindManager:
         self.folder_search = None
         self.file_search = None
         self.plugin_active = False
+        self.results_lock = threading.Lock()  # Add this line
 
     def load_plugin(self):
         self.settings = sublime.load_settings(SETTINGS_FILE)
@@ -75,22 +76,27 @@ class SublimeFindManager:
         if (
             not self.folder_search.is_alive() and not self.file_search.is_alive()
         ) or Search.stop_event.is_set():
-            self.folders = self.folder_search.results if self.folder_search else []
-            self.files = self.file_search.results if self.file_search else []
-            self.search_complete.set()
+            with self.results_lock:  # Add this line
+                self.folders = self.folder_search.results if self.folder_search else []
+                self.files = self.file_search.results if self.file_search else []
+                self.search_complete.set()
 
-            if not Search.stop_event.is_set():
-                folder_time = (
-                    self.folder_search.execution_time if self.folder_search else 0
-                )
-                file_time = self.file_search.execution_time if self.file_search else 0
-                print(
-                    f"SublimeFind: Folder search completed in {folder_time:.2f} seconds"
-                )
-                print(f"SublimeFind: File search completed in {file_time:.2f} seconds")
-                print(
-                    f"SublimeFind: Total search time: {max(folder_time, file_time):.2f} seconds"
-                )
+                if not Search.stop_event.is_set():
+                    folder_time = (
+                        self.folder_search.execution_time if self.folder_search else 0
+                    )
+                    file_time = (
+                        self.file_search.execution_time if self.file_search else 0
+                    )
+                    print(
+                        f"SublimeFind: Folder search completed in {folder_time:.2f} seconds"
+                    )
+                    print(
+                        f"SublimeFind: File search completed in {file_time:.2f} seconds"
+                    )
+                    print(
+                        f"SublimeFind: Total search time: {max(folder_time, file_time):.2f} seconds"
+                    )
         else:
             sublime.set_timeout(lambda: self._update_results(), 100)
 
@@ -259,19 +265,22 @@ class FindDirCommand(sublime_plugin.WindowCommand):
 
     def run(self):
         manager = SublimeFindManager.get_instance()
-        if not manager.search_complete.is_set():
-            self.window.show_quick_panel(
-                ["Search still in progress. Please wait..."], None
-            )
-            return
+        with manager.results_lock:
+            if not manager.search_complete.is_set():
+                self.window.show_quick_panel(
+                    ["Search still in progress. Please wait..."], None
+                )
+                return
 
-        placeholder = "Search for directory (out of {})".format(len(manager.folders))
-        if manager.conf and len(manager.conf.dirs) > 0:
-            self.window.show_quick_panel(
-                manager.folders, self._on_open, placeholder=placeholder
+            placeholder = "Search for directory (out of {})".format(
+                len(manager.folders)
             )
-        else:
-            self.window.show_quick_panel(["No paths in settings"], None)
+            if manager.conf and len(manager.conf.dirs) > 0:
+                self.window.show_quick_panel(
+                    manager.folders, self._on_open, placeholder=placeholder
+                )
+            else:
+                self.window.show_quick_panel(["No paths in settings"], None)
 
 
 class FindFileCommand(sublime_plugin.WindowCommand):
@@ -311,22 +320,23 @@ class FindFileCommand(sublime_plugin.WindowCommand):
 
     def run(self):
         manager = SublimeFindManager.get_instance()
-        if not manager.search_complete.is_set():
-            self.window.show_quick_panel(
-                ["Search still in progress. Please wait..."], None
-            )
-            return
+        with manager.results_lock:
+            if not manager.search_complete.is_set():
+                self.window.show_quick_panel(
+                    ["Search still in progress. Please wait..."], None
+                )
+                return
 
-        placeholder = "Search for file (out of {})".format(len(manager.files))
-        if manager.conf and len(manager.conf.dirs) > 0:
-            self.window.show_quick_panel(
-                manager.files,
-                self._on_open,
-                placeholder=placeholder,
-                on_highlight=self._show_preview,
-            )
-        else:
-            self.window.show_quick_panel(["No paths in settings"], None)
+            placeholder = "Search for file (out of {})".format(len(manager.files))
+            if manager.conf and len(manager.conf.dirs) > 0:
+                self.window.show_quick_panel(
+                    manager.files,
+                    self._on_open,
+                    placeholder=placeholder,
+                    on_highlight=self._show_preview,
+                )
+            else:
+                self.window.show_quick_panel(["No paths in settings"], None)
 
 
 class RgFile(sublime_plugin.WindowCommand):
