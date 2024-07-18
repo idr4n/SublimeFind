@@ -1,7 +1,7 @@
 {
-  // Paths to look for with fd. Need to restart Sublime if changes are made
-  // in "paths". Entering paths that contain many directories and files will
-  // affect the startup time of Sublime
-  // E.g. "paths": ["~/Dropbox/Dev", "~/pCloud/Dev", "~/.config"],
+  // Paths to scan with `fd`. You need to restart Sublime if changes are made
+  // in "paths". Entering paths that contain many files will take longer to
+  // scan but will not affect Sublime's startup time. E.g.:
+  // "paths": ["~/Dev", "~/.config"],
   "paths": [],
 }

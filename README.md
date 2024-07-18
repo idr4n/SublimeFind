@@ -3,7 +3,7 @@
 
 ### Description
 
-A Sublime Text plugin that shows the results of the commands `fd` (replacement of `find`) and `rg` (replacement of `grep`) in Sublime's Quick Panel, making the results searchable. The selection will be opened in a new window, if a folder, or in the current window, if it is a file. 
+A Sublime Text plugin that shows the results of the commands `fd` and `rg` in Sublime's Quick Panel, making the results searchable. The selection will be opened in a new window if a folder, or in the current window if a file. 
 
 ![SublimeFind1](https://user-images.githubusercontent.com/20104703/131145472-25ad1c0c-ed9e-468d-b9fb-ae1b10c3963a.gif)
 
@@ -15,7 +15,7 @@ The motivation for this plugin is to bring some of my workflow from the terminal
 
 ### Usage
 
-To be able to use `fd`, a list of paths has to be defined in the setting `"paths": []`. Once there is a list of paths defined, it is possible to look for directories or files in those paths with:
+To be able to use `fd`, a list of directory paths has to be defined in `"paths": []` in the settings. Once a list of directories is defined, it is possible to search for directories or files in those paths with:
 
 ```
 [
@@ -26,7 +26,9 @@ To be able to use `fd`, a list of paths has to be defined in the setting `"paths
 ]
 ``` 
 
-Additionally, it is possible to get the ouput of `rg` (ripgrep) from either the current file or from all files in the folders in the project, similar to one of `fzf.vim's` features. The commands for this are:
+The list of directories in `paths` is scanned asynchronously with `fd` when Sublime starts up and the plugin is loaded. This is implemented using separate threads for folder and file searches. While specifying directories with many files may increase the initial scan time, it doesn't affect Sublime's startup time due to the non-blocking nature of the search. The plugin uses a `Search` class that extends `threading.Thread` to perform these operations in the background.
+
+The other feature of this plugin is to get the output of `rg` from either the current file or from all files in the folders in the project, similar to one of `fzf.vim's` features. The commands for this are:
 
 ```
 [
@@ -37,7 +39,7 @@ Additionally, it is possible to get the ouput of `rg` (ripgrep) from either the 
 ]
 ``` 
 
-This pluging is still in develpment and I have tested extensibly in MacOS, and Linux. It also works in Windows, although testing in this platform has been limited.
+This plugin is still in development and has been tested extensively in MacOS, and Linux. It also works in Windows, although testing on this platform has been limited.
 
 ### License
 

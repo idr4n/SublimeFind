@@ -147,6 +147,7 @@ def _shorten_paths(paths: List[str]) -> list:
     except Exception:
         return paths
 
+
 def _check_fd():
     if OS == "osx" or OS == "linux":
         if subprocess.getoutput("which fd"):
@@ -156,6 +157,7 @@ def _check_fd():
             return True
 
     return False
+
 
 def _check_rg():
     if OS == "osx" or OS == "linux":
