@@ -158,11 +158,7 @@ class Search(threading.Thread):
             return []
 
         dirs = " ".join(self.manager.conf.dirs)
-        OS = sublime.platform()
-        if OS == "osx" or OS == "linux":
-            return ["fd", ".", "-t", self.type] + dirs.split()
-        else:
-            return ["fd", ".", "-t", self.type] + dirs.split()
+        return ["fd", "-H", ".", "-t", self.type] + dirs.split()
 
     def terminate_process(self):
         if self.process:
