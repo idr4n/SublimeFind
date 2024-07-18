@@ -8,12 +8,111 @@ from subprocess import Popen, PIPE
 from typing import List, Tuple
 
 
-class Conf:
-    def __init__(self) -> None:
-        self.dirs = self._setDirs()
+class SublimeFindManager:
+    _instance = None
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    def __init__(self):
+        self.settings = {}
+        self.paths = []
+        self.conf = None
+        self.folders = []
+        self.files = []
+        self.search_complete = threading.Event()
+        self.folder_search = None
+        self.file_search = None
+        self.plugin_active = False
+
+    def load_plugin(self):
+        self.settings = sublime.load_settings(SETTINGS_FILE)
+        self.paths = self.settings.get("paths")
+
+        if not self._check_tool("fd") or not self._check_tool("rg"):
+            sublime.error_message(
+                "SublimeFind: 'fd' or 'rg' is not installed. Plugin will not load."
+            )
+            self.plugin_active = False
+            return
+
+        self.plugin_active = True
+        self.conf = Conf()
+        self.search_complete.clear()
+
+        self.folder_search = Search()
+        self.file_search = Search("f")
+
+        self.folder_search.start()
+        self.file_search.start()
+
+        sublime.set_timeout(lambda: self._update_results(), 100)
+
+    def unload_plugin(self):
+        self.plugin_active = False
+        Search.stop_event.set()
+        Search.force_kill_fd_processes()
+
+        if self.folder_search:
+            self.folder_search.terminate_process()
+            self.folder_search.join(timeout=2)
+            self.folder_search = None
+        if self.file_search:
+            self.file_search.terminate_process()
+            self.file_search.join(timeout=2)
+            self.file_search = None
+
+        Search.force_kill_fd_processes()
+
+    def _update_results(self):
+        if self.folder_search is None or self.file_search is None:
+            print("SublimeFind: Search objects not initialized.")
+            return
+
+        if (
+            not self.folder_search.is_alive() and not self.file_search.is_alive()
+        ) or Search.stop_event.is_set():
+            self.folders = self.folder_search.results if self.folder_search else []
+            self.files = self.file_search.results if self.file_search else []
+            self.search_complete.set()
+
+            if not Search.stop_event.is_set():
+                folder_time = (
+                    self.folder_search.execution_time if self.folder_search else 0
+                )
+                file_time = self.file_search.execution_time if self.file_search else 0
+                print(
+                    f"SublimeFind: Folder search completed in {folder_time:.2f} seconds"
+                )
+                print(f"SublimeFind: File search completed in {file_time:.2f} seconds")
+                print(
+                    f"SublimeFind: Total search time: {max(folder_time, file_time):.2f} seconds"
+                )
+        else:
+            sublime.set_timeout(lambda: self._update_results(), 100)
 
     @staticmethod
-    def _setDirs():
+    def _check_tool(tool_name):
+        """Checks if the given tool is installed in the system."""
+        try:
+            command = "which" if OS in ("osx", "linux") else "where"
+            result = subprocess.getoutput(f"{command} {tool_name}")
+            return bool(result)
+        except Exception as e:
+            print(f"Error checking for {tool_name}: {e}")
+            return False
+
+
+class Conf:
+    def __init__(self) -> None:
+        self.settings = sublime.load_settings(SETTINGS_FILE)
+        self.dirs = self._setDirs()
+
+    def _setDirs(self):
+        paths = self.settings.get("paths", [])
         return [
             os.path.expanduser(path)
             for path in paths
@@ -23,151 +122,16 @@ class Conf:
 
 SETTINGS_FILE = "SublimeFind.sublime-settings"
 OS = sublime.platform()
-s = {}
-paths = []
-conf = Conf()
-folders = []
-files = []
-search_complete = threading.Event()
-folder_search = None
-file_search = None
-plugin_active = False
 
 
 def plugin_loaded():
-    global \
-        s, \
-        conf, \
-        folders, \
-        files, \
-        paths, \
-        search_complete, \
-        folder_search, \
-        file_search, \
-        plugin_active
-
-    s = sublime.load_settings(SETTINGS_FILE)
-    paths = s.get("paths")
-
-    if not _check_fd():
-        sublime.error_message(
-            "SublimeFind: 'fd' is not installed. Plugin will not load."
-        )
-        plugin_active = False
-        return
-
-    if not _check_rg():
-        sublime.error_message(
-            "SublimeFind: 'rg' is not installed. Plugin will not load."
-        )
-        plugin_active = False
-        return
-
-    plugin_active = True
-    conf = Conf()
-
-    search_complete.clear()
-
-    folder_search = Search()
-    file_search = Search("f")
-
-    folder_search.start()
-    file_search.start()
-
-    sublime.set_timeout(lambda: _update_results(folder_search, file_search), 100)
+    manager = SublimeFindManager.get_instance()
+    manager.load_plugin()
 
 
 def plugin_unloaded():
-    global plugin_active, folder_search, file_search
-    plugin_active = False
-
-    # First, set the stop event to signal all threads to stop
-    Search.stop_event.set()
-
-    # Force kill all fd processes
-    Search.force_kill_fd_processes()
-
-    # Now attempt to gracefully terminate and join the threads
-    if folder_search:
-        folder_search.terminate_process()
-        folder_search.join(timeout=2)
-        folder_search = None
-    if file_search:
-        file_search.terminate_process()
-        file_search.join(timeout=2)
-        file_search = None
-
-    # Final check to ensure all fd processes are terminated
-    Search.force_kill_fd_processes()
-
-
-class SublimeFindKillFDProcesses(sublime_plugin.EventListener):
-    def on_exit(self):
-        Search.stop_event.set()
-        Search.force_kill_fd_processes()
-
-
-def _update_results(folder_search, file_search):
-    global folders, files
-    if (
-        not folder_search.is_alive() and not file_search.is_alive()
-    ) or Search.stop_event.is_set():
-        folders = folder_search.results
-        files = file_search.results
-        search_complete.set()
-
-        if not Search.stop_event.is_set():
-            print(
-                f"SublimeFind: Folder search completed in {folder_search.execution_time:.2f} seconds"
-            )
-            print(
-                f"SublimeFind: File search completed in {file_search.execution_time:.2f} seconds"
-            )
-            print(
-                f"SublimeFind: Total search time: {max(folder_search.execution_time, file_search.execution_time):.2f} seconds"
-            )
-    else:
-        sublime.set_timeout(lambda: _update_results(folder_search, file_search), 100)
-
-
-def _prettify_path(path: str) -> str:
-    user_home = os.path.expanduser("~") + os.sep
-    if path.startswith(os.path.expanduser("~")):
-        return os.path.join("~", path[len(user_home) :])
-    return path
-
-
-def _shorten_paths(paths: List[str]) -> list:
-    try:
-        common_path = os.path.commonpath(paths)
-        if common_path:
-            return ["...{}".format(path[len(common_path) :]) for path in paths]
-        else:
-            return paths
-    except Exception:
-        return paths
-
-
-def _check_fd():
-    if OS == "osx" or OS == "linux":
-        if subprocess.getoutput("which fd"):
-            return True
-    if OS == "windows":
-        if subprocess.getoutput("where fd"):
-            return True
-
-    return False
-
-
-def _check_rg():
-    if OS == "osx" or OS == "linux":
-        if subprocess.getoutput("which rg"):
-            return True
-    if OS == "windows":
-        if subprocess.getoutput("where rg"):
-            return True
-
-    return False
+    manager = SublimeFindManager.get_instance()
+    manager.unload_plugin()
 
 
 class Search(threading.Thread):
@@ -176,13 +140,18 @@ class Search(threading.Thread):
     def __init__(self, type="d"):
         threading.Thread.__init__(self)
         self.type = type
+        self.manager = SublimeFindManager.get_instance()
         self.query = self._setQuery()
         self.results = []
         self.execution_time = 0
         self.process = None
 
-    def _setQuery(self):
-        dirs = " ".join(conf.dirs)
+    def _setQuery(self) -> List[str]:
+        if self.manager.conf is None:
+            print("SublimeFind Warning: Configuration not initialized")
+            return []
+
+        dirs = " ".join(self.manager.conf.dirs)
         OS = sublime.platform()
         if OS == "osx" or OS == "linux":
             return ["fd", ".", "-t", self.type] + dirs.split()
@@ -241,9 +210,33 @@ class Search(threading.Thread):
             self.execution_time = time.time() - start_time
 
 
+def _prettify_path(path: str) -> str:
+    user_home = os.path.expanduser("~") + os.sep
+    if path.startswith(os.path.expanduser("~")):
+        return os.path.join("~", path[len(user_home) :])
+    return path
+
+
+def _shorten_paths(paths: List[str]) -> list:
+    try:
+        common_path = os.path.commonpath(paths)
+        if common_path:
+            return ["...{}".format(path[len(common_path) :]) for path in paths]
+        else:
+            return paths
+    except Exception:
+        return paths
+
+
+class SublimeFindKillFDProcesses(sublime_plugin.EventListener):
+    def on_exit(self):
+        Search.stop_event.set()
+        Search.force_kill_fd_processes()
+
+
 class FindDirCommand(sublime_plugin.WindowCommand):
     def is_enabled(self):
-        return plugin_active
+        return SublimeFindManager.get_instance().plugin_active
 
     def _get_window(self):
         curwin = sublime.active_window()
@@ -255,7 +248,7 @@ class FindDirCommand(sublime_plugin.WindowCommand):
 
     def _on_open(self, index):
         if index >= 0:
-            path = folders[index]
+            path = SublimeFindManager.get_instance().folders[index]
             if os.path.isdir(os.path.expanduser(path)):
                 new_win = self._get_window()
                 new_data = {"folders": [{"path": path}]}
@@ -265,16 +258,17 @@ class FindDirCommand(sublime_plugin.WindowCommand):
                 sublime.message_dialog("Selection is not a directory.")
 
     def run(self):
-        if not search_complete.is_set():
+        manager = SublimeFindManager.get_instance()
+        if not manager.search_complete.is_set():
             self.window.show_quick_panel(
                 ["Search still in progress. Please wait..."], None
             )
             return
 
-        placeholder = "Search for directory (out of {})".format(len(folders))
-        if len(conf.dirs) > 0:
+        placeholder = "Search for directory (out of {})".format(len(manager.folders))
+        if manager.conf and len(manager.conf.dirs) > 0:
             self.window.show_quick_panel(
-                folders, self._on_open, placeholder=placeholder
+                manager.folders, self._on_open, placeholder=placeholder
             )
         else:
             self.window.show_quick_panel(["No paths in settings"], None)
@@ -282,7 +276,7 @@ class FindDirCommand(sublime_plugin.WindowCommand):
 
 class FindFileCommand(sublime_plugin.WindowCommand):
     def is_enabled(self):
-        return plugin_active
+        return SublimeFindManager.get_instance().plugin_active
 
     def _get_window(self):
         curwin = sublime.active_window()
@@ -297,7 +291,7 @@ class FindFileCommand(sublime_plugin.WindowCommand):
 
     def _show_preview(self, index):
         if index >= 0:
-            file = files[index]
+            file = SublimeFindManager.get_instance().files[index]
             if os.path.isfile(os.path.expanduser(file)):
                 self.window.open_file(file, sublime.TRANSIENT)
 
@@ -306,7 +300,7 @@ class FindFileCommand(sublime_plugin.WindowCommand):
         if index >= 0:
             if self._is_transient(active_view):
                 active_view.close()
-            file = files[index]
+            file = SublimeFindManager.get_instance().files[index]
             if os.path.isfile(os.path.expanduser(file)):
                 new_win = self._get_window()
                 new_win.open_file(file)
@@ -316,16 +310,17 @@ class FindFileCommand(sublime_plugin.WindowCommand):
                 active_view.close()
 
     def run(self):
-        if not search_complete.is_set():
+        manager = SublimeFindManager.get_instance()
+        if not manager.search_complete.is_set():
             self.window.show_quick_panel(
                 ["Search still in progress. Please wait..."], None
             )
             return
 
-        placeholder = "Search for file (out of {})".format(len(files))
-        if len(conf.dirs) > 0:
+        placeholder = "Search for file (out of {})".format(len(manager.files))
+        if manager.conf and len(manager.conf.dirs) > 0:
             self.window.show_quick_panel(
-                files,
+                manager.files,
                 self._on_open,
                 placeholder=placeholder,
                 on_highlight=self._show_preview,
@@ -336,7 +331,7 @@ class FindFileCommand(sublime_plugin.WindowCommand):
 
 class RgFile(sublime_plugin.WindowCommand):
     def is_enabled(self):
-        return plugin_active
+        return SublimeFindManager.get_instance().plugin_active
 
     def __init__(self, window) -> None:
         super().__init__(window)
@@ -388,7 +383,7 @@ class RgFile(sublime_plugin.WindowCommand):
 
 class RgAll(sublime_plugin.WindowCommand):
     def is_enabled(self):
-        return plugin_active
+        return SublimeFindManager.get_instance().plugin_active
 
     def __init__(self, window) -> None:
         super().__init__(window)

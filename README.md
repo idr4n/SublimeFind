@@ -1,4 +1,3 @@
-
 # SublimeFind with `fd` and `rg`
 
 ### Description
